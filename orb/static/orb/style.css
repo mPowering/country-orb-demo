@@ -5,8 +5,8 @@
  #2a6083 - mid blue - r42 g96 b131
  #033f62 - dark blue - r3 g63 b98
  #ff0054 - pink/red - r255 g0 b84
- #EF485B
-
+#8B0000 - dark red
+#A52A2A - crimson
  */
 
 /* Move down content because we have a fixed navbar that is 50px tall */
@@ -35,7 +35,7 @@ h3.homepage {
 }
 
 a, span.bookmark {
-    color: #033f62;
+    color: #8B0000;
     text-decoration: none;
 }
 
@@ -70,7 +70,7 @@ span.bookmark:hover, span.bookmark:focus {
 }
 
 .navbar-inverse {
-    background-color: #033f62;
+    background-color: #8B0000;
     border-color: #EF485B;
     border-bottom: 2px solid #EF485B;
 }
@@ -85,12 +85,12 @@ span.bookmark:hover, span.bookmark:focus {
 
 .navbar-inverse .navbar-nav > li > a {
     color: #fff;
-    border: 1px solid #033f62;
+    border: 1px solid #8B0000;
 }
 
 .navbar-inverse .navbar-nav > li > a:hover,
 .navbar-inverse .navbar-nav > li > a:focus {
-    background-color: #033f62;
+    background-color: #8B0000;
 }
 
 .navbar-inverse .navbar-nav .open .dropdown-menu > li > a {
@@ -110,7 +110,7 @@ span.bookmark:hover, span.bookmark:focus {
 }
 
 .navbar-inverse .navbar-nav > .open > a, .navbar-inverse .navbar-nav > .open > a:hover, .navbar-inverse .navbar-nav > .open > a:focus {
-    background-color: #033f62;
+    background-color: #8B0000;
     border: 1px dotted #fff;
 }
 
@@ -159,16 +159,16 @@ span.bookmark:hover, span.bookmark:focus {
 
 .nav-sidebar > .active > a {
     color: #fff;
-    background-color: #2a6083;
+    background-color: #A52A2A;
 }
 
 .nav > li > a:hover {
-    background-color: #2a6083;
+    background-color: #A52A2A;
     color: #fff;
 }
 
 .nav > li > a:focus {
-    background-color: #2a6083;
+    background-color: #A52A2A;
     color: #fff;
 }
 
@@ -244,15 +244,15 @@ span.bookmark:hover, span.bookmark:focus {
 }
 
 .btn-primary {
-    background-color: #2a6083;
-    border-color: #033f62;
+    background-color: #A52A2A;
+    border-color: #8B0000;
     color: #FFFFFF;
 }
 
 .btn-primary:hover, .btn-primary:focus, .btn-primary:active,
 .btn-primary.active, .open .dropdown-toggle.btn-primary {
-    background-color: #033f62;
-    border-color: #033f62;
+    background-color: #8B0000;
+    border-color: #8B0000;
     color: #FFFFFF;
 }
 
@@ -339,7 +339,7 @@ img.resource-row-icon:hover {
 
 .resource-row-study-time {
     display: inline-block;
-    background-color: #033f62;
+    background-color: #8B0000;
     opacity: .6;
     color: #fff;
     padding: 0 8px 0 0;

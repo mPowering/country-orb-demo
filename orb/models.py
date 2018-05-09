@@ -1,9 +1,9 @@
 from __future__ import unicode_literals
 
 import itertools
-import os
 import uuid
 
+import os
 import parsedatetime as pdt
 from django.conf import settings
 from django.contrib.auth.models import User
@@ -20,11 +20,12 @@ from typing import Iterable
 
 from orb import signals
 from orb.analytics.models import UserLocationVisualization
+from orb.fields import AutoSlugField
+from orb.fields import image_cleaner
 from orb.profiles.querysets import ProfilesQueryset
 from orb.resources.managers import ResourceQueryset, ResourceURLManager, TrackerQueryset
 from orb.review.queryset import CriteriaQueryset
 from orb.tags.managers import ResourceTagManager, TagQuerySet
-from .fields import AutoSlugField
 
 cal = pdt.Calendar()
 
@@ -83,8 +84,8 @@ class Resource(TimestampBase):
     description = models.TextField(blank=False, null=False)
     image = models.ImageField(upload_to='resourceimage/%Y/%m/%d', max_length=200, blank=True, null=True)
     status = models.CharField(max_length=50, choices=STATUS_TYPES, default=PENDING)
-    create_user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='resource_create_user')
-    update_user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='resource_update_user')
+    create_user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='resource_create_user', blank=True, null=True, default=None, on_delete=models.SET_NULL)
+    update_user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='resource_update_user', blank=True, null=True, default=None, on_delete=models.SET_NULL)
     slug = AutoSlugField(populate_from='title', max_length=100, blank=True, null=True)
     study_time_number = models.IntegerField(default=0, null=True, blank=True)
     study_time_unit = models.CharField(max_length=10, choices=STUDY_TIME_UNITS, blank=True, null=True)
@@ -115,6 +116,20 @@ class Resource(TimestampBase):
 
     def __unicode__(self):
         return self.title
+
+    def save(self, **kwargs):
+        """Cleans API submitted images"""
+        if self.image and (self.image.name.startswith("http://") or self.image.name.startswith("https://")):
+            remote_image_file = self.image.name
+        else:
+            remote_image_file = None
+
+        super(Resource, self).save(**kwargs)
+
+        if remote_image_file:
+            image_cleaner(self, url=remote_image_file)
+
+        return self
 
     def get_absolute_url(self):
         return urlresolvers.reverse('orb_resource', args=[self.slug])
@@ -357,10 +372,8 @@ class ResourceURL(TimestampBase):
     file_size = models.IntegerField(default=0)
     image = models.ImageField(
         upload_to='resourceimage/%Y/%m/%d', max_length=200, blank=True, null=True)
-    create_user = models.ForeignKey(
-        User, related_name='resource_url_create_user')
-    update_user = models.ForeignKey(
-        User, related_name='resource_url_update_user')
+    create_user = models.ForeignKey(User, related_name='resource_url_create_user', blank=True, null=True, default=None, on_delete=models.SET_NULL)
+    update_user = models.ForeignKey(User, related_name='resource_url_update_user', blank=True, null=True, default=None, on_delete=models.SET_NULL)
 
     objects = ResourceURLManager.as_manager()
 
@@ -428,12 +441,9 @@ class ResourceFile(TimestampBase):
     order_by = models.IntegerField(default=0)
     image = models.ImageField(
         upload_to='resourceimage/%Y/%m/%d', max_length=200, blank=True, null=True)
-    create_user = models.ForeignKey(
-        User, related_name='resource_file_create_user')
-    update_user = models.ForeignKey(
-        User, related_name='resource_file_update_user')
+    create_user = models.ForeignKey(User, related_name='resource_file_create_user', blank=True, null=True, default=None, on_delete=models.SET_NULL)
+    update_user = models.ForeignKey(User, related_name='resource_file_update_user', blank=True, null=True, default=None, on_delete=models.SET_NULL)
     file_full_text = models.TextField(blank=True, null=True, default=None)
-
     objects = ResourceURLManager.as_manager()
 
     def __unicode__(self):
@@ -477,10 +487,8 @@ class ResourceRelationship(TimestampBase):
     relationship_type = models.CharField(
         max_length=50, choices=RELATIONSHIP_TYPES)
     description = models.TextField(blank=False, null=False)
-    create_user = models.ForeignKey(
-        User, related_name='resource_relationship_create_user')
-    update_user = models.ForeignKey(
-        User, related_name='resource_relationship_update_user')
+    create_user = models.ForeignKey(User, related_name='resource_relationship_create_user', blank=True, null=True, default=None, on_delete=models.SET_NULL)
+    update_user = models.ForeignKey(User, related_name='resource_relationship_update_user', blank=True, null=True, default=None, on_delete=models.SET_NULL)
 
 
 class ResourceCriteria(models.Model):
@@ -550,8 +558,8 @@ class Tag(TimestampBase):
     category = models.ForeignKey(Category)
     parent_tag = models.ForeignKey('self', blank=True, null=True, default=None, related_name="children")
     name = models.CharField(max_length=100)
-    create_user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='tag_create_user')
-    update_user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='tag_update_user')
+    create_user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='tag_create_user', blank=True, null=True, default=None, on_delete=models.SET_NULL)
+    update_user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='tag_update_user', blank=True, null=True, default=None, on_delete=models.SET_NULL)
     image = models.ImageField(upload_to='tag/%Y/%m/%d', null=True, blank=True)
     slug = AutoSlugField(populate_from='name', max_length=100, blank=True, null=True)
     order_by = models.IntegerField(default=0)
@@ -579,6 +587,12 @@ class Tag(TimestampBase):
         return urlresolvers.reverse('orb_tags', args=[self.slug])
 
     def save(self, *args, **kwargs):
+
+        if self.image and (self.image.name.startswith("http://") or self.image.name.startswith("https://")):
+            remote_image_file = self.image.name
+        else:
+            remote_image_file = None
+
         # add generic geography icon if not specified
         if self.category.slug == 'geography' and not self.image:
             self.image = 'tag/geography_default.png'
@@ -596,6 +610,11 @@ class Tag(TimestampBase):
             self.image = 'tag/other_default.png'
 
         super(Tag, self).save(*args, **kwargs)
+
+        if remote_image_file:
+            image_cleaner(self, url=remote_image_file)
+
+        return self
 
     def image_filename(self):
         return os.path.basename(self.image.name)
@@ -655,7 +674,7 @@ class ResourceTag(models.Model):
     create_date = models.DateTimeField(auto_now_add=True)
     resource = models.ForeignKey(Resource)
     tag = models.ForeignKey(Tag, related_name="resourcetag")
-    create_user = models.ForeignKey(User, related_name='resourcetag_create_user')
+    create_user = models.ForeignKey(User, related_name='resourcetag_create_user', blank=True, null=True, default=None, on_delete=models.SET_NULL)
 
     objects = ResourceTagManager()
 
@@ -686,10 +705,10 @@ class ResourceTag(models.Model):
         api_data.pop('resource_uri', None)
         api_data.pop('url', None)
 
-        category_name = api_data.pop('category')
+        category_name = api_data.pop('category').strip()
         category_fields = [f for f in Category.api_translation_fields()]
         category_name_translations = {
-            field: api_data.pop(field.replace('category', 'name'), "")
+            field: api_data.pop(field.replace('name', 'category'), "")
             for field in category_fields
         }
 
@@ -702,6 +721,7 @@ class ResourceTag(models.Model):
         api_data['category'] = category
 
         tag, created = Tag.objects.get_or_create(name=api_data['name'], defaults=api_data)
+
         return cls.objects.create(resource=resource, tag=tag, create_user=user)
 
 

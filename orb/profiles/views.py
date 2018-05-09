@@ -6,6 +6,8 @@ from django.contrib.auth import authenticate
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+from django.db.models import Q
+from django.forms.models import model_to_dict
 from django.views.generic import FormView
 
 from django.core.urlresolvers import reverse
@@ -14,8 +16,8 @@ from django.shortcuts import render
 from django.shortcuts import redirect
 from django.utils.translation import ugettext_lazy as _
 
-from orb.models import UserProfile, Tag, Category, Resource, ResourceRating, Collection
-from orb.profiles.forms import LoginForm, RegisterForm, ResetForm, ProfileForm
+from orb.models import UserProfile, Tag, Category, Resource, ResourceRating, Collection, ResourceTracker, TagTracker, SearchTracker, CollectionUser, Resource, ResourceURL, ResourceFile
+from orb.profiles.forms import LoginForm, RegisterForm, ResetForm, ProfileForm, DeleteProfileForm
 from orb.emailer import password_reset
 from orb.signals import user_registered
 from tastypie.models import ApiKey
@@ -190,7 +192,7 @@ def edit(request):
 
     return render(request, 'orb/profile/edit.html', {'form': form, })
 
-
+@login_required
 def view_profile(request, id):
     try:
         user = User.objects.get(pk=id)
@@ -205,7 +207,7 @@ def view_profile(request, id):
 
     return render(request, 'orb/profile/view.html', {'viewuser': user, 'gravatar_url': gravatar_url})
 
-
+@login_required
 def view_my_profile(request):
     try:
         user = User.objects.get(pk=request.user.id)
@@ -213,7 +215,7 @@ def view_my_profile(request):
     except User.DoesNotExist:
         raise Http404()
 
-
+@login_required
 def view_my_ratings(request):
     try:
         user = User.objects.get(pk=request.user.id)
@@ -224,7 +226,7 @@ def view_my_ratings(request):
         resource__status=Resource.APPROVED, user=user).order_by('resource__title')
     return render(request, 'orb/profile/rated.html', {'ratings': ratings})
 
-
+@login_required
 def view_my_bookmarks(request):
     try:
         user = User.objects.get(pk=request.user.id)
@@ -235,8 +237,77 @@ def view_my_bookmarks(request):
                                         collectionresource__collection__collectionuser__user=user).order_by('title')
     return render(request, 'orb/profile/bookmarks.html', {'bookmarks': bookmarks})
 
-# Helper Methods
+@login_required
+def export_data(request):
+    '''
+    '''
+    resources = Resource.objects.filter(Q(create_user=request.user) | Q(update_user=request.user)).order_by('-create_date')
+    collections = Collection.objects.filter(collectionuser__user=request.user).order_by('-create_date')
+    resource_trackers = ResourceTracker.objects.filter(user=request.user).order_by('-access_date')
+    tag_trackers = TagTracker.objects.filter(user=request.user).order_by('-access_date')
+    search_trackers = SearchTracker.objects.filter(user=request.user).order_by('-access_date')
+    ratings = ResourceRating.objects.filter(user=request.user).order_by('-create_date')
+    
+    return render(request, 'orb/profile/export.html',
+                  {'userrecord': model_to_dict(request.user, fields=[field.name for field in request.user._meta.fields]),
+                   'userprofile': model_to_dict(request.user.userprofile, fields=[field.name for field in request.user.userprofile._meta.fields]),
+                   'organisation': request.user.userprofile.organisation.name,
+                   'resources': resources,
+                   'collections': collections,
+                   'resource_trackers': resource_trackers,
+                   'tag_trackers': tag_trackers,
+                   'search_trackers': search_trackers,
+                   'ratings': ratings})
+    
+    
 
+@login_required
+def delete_account(request):
+    resources_count = Resource.objects.filter(create_user=request.user).count()
+    
+    if request.method == 'POST':
+        form = DeleteProfileForm(resources_count, request.POST)
+        if form.is_valid():
+           
+            # ratings
+            ResourceRating.objects.filter(user=request.user).delete()
+            
+            # search trackers
+            SearchTracker.objects.filter(user=request.user).delete()
+            
+            # tag trackers
+            TagTracker.objects.filter(user=request.user).delete()
+            
+            # resource trackers
+            ResourceTracker.objects.filter(user=request.user).delete()
+            
+            # collections
+            CollectionUser.objects.filter(user=request.user).delete()
+            
+            if form.cleaned_data.get("delete_resources"):
+                # resources
+                Resource.objects.filter(create_user=request.user).delete()
+                # resource_urls
+                ResourceURL.objects.filter(create_user=request.user).delete()
+                # resource_files
+                ResourceFile.objects.filter(create_user=request.user).delete()
+            
+            # user
+            u = User.objects.get(pk=request.user.id)
+            u.delete()
+            
+            return HttpResponseRedirect(reverse('profile_delete_account_complete')) 
+    else:
+        form = DeleteProfileForm(resources_count, initial={'username':request.user.username},)
+         
+    return render(request, 'orb/profile/delete.html',
+                  {'form': form })
+
+
+def delete_account_complete(request):
+    return render(request, 'orb/profile/delete_complete.html')
+
+# Helper Methods
 
 def build_form_options(form, blank_options=True):
     # roles
